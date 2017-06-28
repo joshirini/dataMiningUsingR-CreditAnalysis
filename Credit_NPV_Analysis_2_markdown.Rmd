@@ -1,0 +1,301 @@
+---
+title: "Credit_NPV2_markdown"
+author: "Rini Joshi"
+date: "4/12/2017"
+output: word_document
+---
+
+```{r Data prep}
+credit_df <- read.csv("credit3.csv")
+profitable <- as.factor(ifelse((credit_df$NPV) > 0, 1, 0))
+credit_df <- cbind(credit_df,profitable)
+
+
+library("dummies")
+## dummies-1.5.6 provided by Decision Patterns
+#credit_dummy_df <- dummy.data.frame(credit_df, sep=".", names=c("CHK_ACCT","SAV_ACCT","HISTORY","JOB","TYPE"))
+
+credit_df$CHK_ACCT <- as.factor(credit_df$CHK_ACCT)
+credit_df$SAV_ACCT <- as.factor(credit_df$SAV_ACCT)
+credit_df$HISTORY <- as.factor(credit_df$HISTORY)
+credit_df$JOB <- as.factor(credit_df$JOB)
+credit_df$TYPE <- as.factor(credit_df$TYPE)
+credit_df$NUM_CREDITS <- as.factor(credit_df$NUM_CREDITS)
+credit_df$PRESENT_RESIDENT <- as.factor(credit_df$PRESENT_RESIDENT)
+credit_df$EMPLOYMENT <- as.factor(credit_df$EMPLOYMENT)
+credit_df$NUM_DEPENDENTS <- as.factor(credit_df$NUM_DEPENDENTS)
+credit_df$INSTALL_RATE <- as.factor(credit_df$INSTALL_RATE)
+
+
+#assign all irrelevant columns as NULL
+credit_df$OBS.<- NULL
+credit_df$NPV <- NULL
+credit_df$CREDIT_EXTENDED <- NULL
+credit_df$AMOUNT_REQUESTED <- as.numeric(credit_df$AMOUNT_REQUESTED)
+
+
+set.seed(12345)
+train <- sample(nrow(credit_df),0.7*nrow(credit_df))
+credit_df_train<-credit_df[train,]
+credit_df_test<-credit_df[-train,]
+profitable_test <- profitable[-train]
+```
+
+```{r Classification tree}
+library(tree)
+#classification tree on training dataset
+tree.credit_df_train=tree(profitable~.,data=credit_df_train)
+summary(tree.credit_df_train)
+
+#display the tree nodes
+tree.credit_df_train
+
+#plot the classification tree on training dataset
+plot(tree.credit_df_train)
+text(tree.credit_df_train,pretty=0)
+
+#k-cross validation on training dataset
+set.seed(123)
+cv.credit_df_train=cv.tree(tree.credit_df_train,FUN=prune.misclass, K=10)
+plot(cv.credit_df_train)
+
+cv.credit_df_train
+
+#plot the pruned classification tree on training dataset
+prune.credit_df_train=prune.misclass(tree.credit_df_train,best=4)
+plot(prune.credit_df_train)
+text(prune.credit_df_train,pretty=0)
+
+#Error Rate of pruned tree on test data
+prune.pred=predict(prune.credit_df_train,credit_df_test,type="class")
+confusion <- table(prune.pred,profitable_test)
+
+Error_prune = (confusion[1,2]+confusion[2,1])/sum(confusion) 
+Error_prune
+
+#Error Rate of full tree on test data
+tree.pred=predict(tree.credit_df_train,credit_df_test,type="class")
+confusion <- table(tree.pred,profitable_test)
+
+Error_tree = (confusion[1,2]+confusion[2,1])/sum(confusion) 
+Error_tree
+
+```
+
+```{r classifying a customer}
+data_frame<-data.frame("AGE"=27,"CHK_ACCT"=1,"SAV_ACCT"= 4,"NUM_CREDITS"=1,"DURATION"=12,"HISTORY"=1,"PRESENT_RESIDENT"=1,"EMPLOYMENT"=1,"JOB"=2,"NUM_DEPENDENTS"=1,"RENT"=1,"INSTALL_RATE"=3,"GUARANTOR"=0,"OTHER_INSTALL"=0,"OWN_RES"=0,"TELEPHONE"=1,"FOREIGN"=0,"REAL_ESTATE"=0,"TYPE"=2,"AMOUNT_REQUESTED"=4500)
+
+data_frame$CHK_ACCT <- as.factor(data_frame$CHK_ACCT)
+data_frame$SAV_ACCT <- as.factor(data_frame$SAV_ACCT)
+data_frame$HISTORY <- as.factor(data_frame$HISTORY)
+data_frame$JOB <- as.factor(data_frame$JOB)
+data_frame$TYPE <- as.factor(data_frame$TYPE)
+data_frame$AMOUNT_REQUESTED <- as.numeric(data_frame$AMOUNT_REQUESTED)
+data_frame$NUM_CREDITS <- as.factor(data_frame$NUM_CREDITS)
+data_frame$PRESENT_RESIDENT <- as.factor(data_frame$PRESENT_RESIDENT)
+data_frame$EMPLOYMENT <- as.factor(data_frame$EMPLOYMENT)
+data_frame$NUM_DEPENDENTS <- as.factor(data_frame$NUM_DEPENDENTS)
+data_frame$INSTALL_RATE <- as.factor(data_frame$INSTALL_RATE)
+
+#classification
+prob_tree <- predict(tree.credit_df_train, newdata = data_frame, type="class")
+prob_tree
+
+prob_prune <- predict(prune.credit_df_train, newdata = data_frame, type="class")
+prob_prune
+
+#probability
+pred_tree <- predict (tree.credit_df_train, newdata= data_frame)
+pred_tree
+
+pred_prune <- predict (prune.credit_df_train, newdata= data_frame)
+pred_prune
+
+```
+
+
+```{r regression tree}
+#data preparation
+credit_reg <- read.csv("credit3.csv")
+credit_reg$CHK_ACCT <- as.factor(credit_reg$CHK_ACCT)
+credit_reg$SAV_ACCT <- as.factor(credit_reg$SAV_ACCT)
+credit_reg$HISTORY <- as.factor(credit_reg$HISTORY)
+credit_reg$JOB <- as.factor(credit_reg$JOB)
+credit_reg$TYPE <- as.factor(credit_reg$TYPE)
+credit_reg$NPV <- as.numeric(credit_reg$NPV)
+credit_reg$AMOUNT_REQUESTED <- as.numeric(credit_reg$AMOUNT_REQUESTED)
+credit_reg$NUM_CREDITS <- as.factor(credit_reg$NUM_CREDITS)
+credit_reg$PRESENT_RESIDENT <- as.factor(credit_reg$PRESENT_RESIDENT)
+credit_reg$EMPLOYMENT <- as.factor(credit_reg$EMPLOYMENT)
+credit_reg$NUM_DEPENDENTS <- as.factor(credit_reg$NUM_DEPENDENTS)
+credit_reg$INSTALL_RATE <- as.factor(credit_reg$INSTALL_RATE)
+credit_reg$OBS. <- NULL
+credit_reg$CREDIT_EXTENDED <- NULL
+
+set.seed(12345)
+train <- sample(nrow(credit_reg),0.7*nrow(credit_reg)) 
+credit_reg_train <- credit_reg[train,] 
+credit_reg_test <- credit_reg[-train,]
+
+#creating regresssion model tree
+tree.credit_reg <- tree(NPV~. , data = credit_reg_train)
+summary(tree.credit_reg)
+
+#plotting the regression tree model
+plot(tree.credit_reg)
+text(tree.credit_reg, pretty = 0)
+
+#pruning
+cv.credit_reg <- cv.tree(tree.credit_reg)
+names(cv.credit_reg)
+
+plot(cv.credit_reg$size,cv.credit_reg$dev, type ='b')
+
+prune.credit_reg <- prune.tree(tree.credit_reg, best = 9)
+plot(prune.credit_reg)
+text(prune.credit_reg, pretty = 0)
+
+#predicting NPV values for validation dataset
+credit_reg_test$NPV <- NULL
+
+prune.credit_reg_predict <- predict (prune.credit_reg,credit_reg_test)
+prune.credit_reg_predict
+
+
+summary(as.factor(prune.credit_reg_predict))
+
+```
+
+
+```{r multiple linear regression}
+
+#Multiple linear regression model
+
+credit_lm <- read.csv("credit3.csv")
+credit_lm$CHK_ACCT <- as.factor(credit_lm$CHK_ACCT)
+credit_lm$SAV_ACCT <- as.factor(credit_lm$SAV_ACCT)
+credit_lm$HISTORY <- as.factor(credit_lm$HISTORY)
+credit_lm$JOB <- as.factor(credit_lm$JOB)
+credit_lm$TYPE <- as.factor(credit_lm$TYPE)
+credit_lm$NPV <- as.numeric(credit_lm$NPV)
+credit_lm$OBS. <- NULL
+credit_lm$CREDIT_EXTENDED <- NULL
+credit_lm$AMOUNT_REQUESTED <- as.numeric(credit_lm$AMOUNT_REQUESTED)
+credit_lm$NUM_CREDITS <- as.factor(credit_lm$NUM_CREDITS)
+credit_lm$PRESENT_RESIDENT <- as.factor(credit_lm$PRESENT_RESIDENT)
+credit_lm$EMPLOYMENT <- as.factor(credit_lm$EMPLOYMENT)
+credit_lm$NUM_DEPENDENTS <- as.factor(credit_lm$NUM_DEPENDENTS)
+credit_lm$INSTALL_RATE <- as.factor(credit_lm$INSTALL_RATE)
+
+
+set.seed(12345)
+train <- sample(nrow(credit_lm),0.7*nrow(credit_lm)) 
+credit_lm_train <- credit_lm[train,] 
+credit_lm_test <- credit_lm[-train,]
+
+#creating regresssion model tree
+credit_lm_fit <- lm(NPV~. , data = credit_lm_train)
+summary(credit_lm_fit)
+
+predict.credit_lm_train <- predict(credit_lm_fit,credit_lm_train)
+
+npv_train <- data.frame(predict.credit_lm_train,credit_lm_train["NPV"])
+npv_train.sorted <- npv_train[order(predict.credit_lm_train),]
+
+#find min and max predicted NPVs
+min_predict_npv=min(predict.credit_lm_train)
+min_predict_npv=max(predict.credit_lm_train)
+
+#find all unique predicted NPVs
+cutoffs <- npv_train.sorted$predict.credit_lm_train
+df <- data.frame(double(),double())
+
+for (i in cutoffs) {
+  x <-sum(npv_train.sorted$NPV[npv_train.sorted$predict.credit_lm_train>i])
+ df <- rbind (df, data.frame(i,x))
+}
+
+colnames(df) <- c("Cutoff","Profit")
+Optimal_cutoff <- df[which.max(df$Profit),]
+Optimal_cutoff
+
+predict.credit_lm_test <- predict(credit_lm_fit,credit_lm_test)
+
+extend_cust <- data.frame(ifelse(predict.credit_lm_test>as.numeric(Optimal_cutoff[1]), 1, 0),predict.credit_lm_test)
+colnames(extend_cust) <- c("cust","Predicted_NPV")
+No_customers <- sum(extend_cust$cust)
+No_customers
+
+Avg_profit = mean(extend_cust[extend_cust$cust>0,"Predicted_NPV"])
+Avg_profit
+
+Total_profit =sum(extend_cust$Predicted_NPV[extend_cust$cust>1])
+Total_profit
+
+
+```
+```{r Bossting, Baggin and Random Forests}
+credit_ext <- read.csv("credit3.csv")
+
+credit_ext$CHK_ACCT <- as.factor(credit_ext$CHK_ACCT)
+credit_ext$SAV_ACCT <- as.factor(credit_ext$SAV_ACCT)
+credit_ext$HISTORY <- as.factor(credit_ext$HISTORY)
+credit_ext$JOB <- as.factor(credit_ext$JOB)
+credit_ext$TYPE <- as.factor(credit_ext$TYPE)
+credit_ext$NUM_CREDITS <- as.factor(credit_ext$NUM_CREDITS)
+credit_ext$PRESENT_RESIDENT <- as.factor(credit_ext$PRESENT_RESIDENT)
+credit_ext$EMPLOYMENT <- as.factor(credit_ext$EMPLOYMENT)
+credit_ext$NUM_DEPENDENTS <- as.factor(credit_ext$NUM_DEPENDENTS)
+credit_ext$INSTALL_RATE <- as.factor(credit_ext$INSTALL_RATE)
+credit_ext$NPV <- as.numeric(credit_ext$NPV)
+credit_ext$OBS. <- NULL
+credit_ext$CREDIT_EXTENDED <- NULL
+
+set.seed(1)
+train <- sample(nrow(credit_ext),0.7*nrow(credit_ext)) 
+credit_ext_train <- credit_ext[train,] 
+credit_ext_test <- credit_ext[-train,]
+
+#Boosting
+library(gbm)
+boost.credit_ext=gbm(NPV~.,data=credit_ext_train,distribution="gaussian", n.trees=5000,interaction.depth=4) 
+summary(boost.credit_ext)
+
+yhat.boost=predict(boost.credit_ext,newdata=credit_ext_test,n.trees=5000) 
+yhat.test <- credit_ext_test$NPV
+mean((yhat.boost-yhat.test)^2)
+
+#Bagging
+set.seed(1)
+library(randomForest)
+bag.credit_ext=randomForest(NPV~.,data=credit_ext_train,mtry=40,importance=TRUE)
+bag.credit_ext
+
+yhat.bag = predict(bag.credit_ext,newdata=credit_ext_test)
+yhat.test <- credit_ext_test$NPV
+mean((yhat.bag-yhat.test)^2)
+
+#credit_ext.test=credit_ext[-train,"NPV"]
+#(c = table(credit_ext.test,yhat.bag))
+#(acc = (c[1,1]+c[2,2])/sum(c))
+importance(bag.credit_ext)
+varImpPlot(bag.credit_ext)
+
+
+# Now RF with m = 3
+set.seed(1)
+library(randomForest)
+rf.credit_ext=randomForest(NPV~.,data=credit_ext_train,mtry=6,importance=TRUE)
+rf.credit_ext
+
+yhat.rf = predict(rf.credit_ext,newdata=credit_ext_test)
+yhat.test <- credit_ext_test$NPV
+mean((yhat.rf-yhat.test)^2)
+
+#credit_ext.test=credit_ext[-train,"NPV"]
+#credit_ext.test
+#(c = table(credit_ext.test,yhat.rf))
+#(acc = (c[1,1]+c[2,2])/sum(c))
+importance(rf.credit_ext)
+varImpPlot(rf.credit_ext)
+```

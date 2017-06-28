@@ -1,0 +1,222 @@
+---
+title: "Credit_NPV_Analysis_3_markdown"
+author: "Rini Joshi"
+date: "4/27/2017"
+output: word_document
+---
+
+```{r data preparation}
+credit_df <- read.csv("credit3.csv")
+
+#set seed to 12345
+set.seed(12345)
+
+#create profitable column
+profitable <- ifelse((credit_df$NPV) > 0, 1, 0)
+credit_df <- cbind(credit_df,profitable)
+
+#remove the non-relevant columns
+credit_df$OBS.<- NULL
+credit_df$CREDIT_EXTENDED <- NULL
+#credit_df$NPV <- NULL
+
+#create dummy variables
+library(dummies)
+
+credit_dummy_df <- dummy.data.frame(credit_df, sep=".", names=c("CHK_ACCT","SAV_ACCT","HISTORY","JOB","TYPE"))
+str(credit_dummy_df)
+```
+
+```{r K-means clustering}
+#k-means clustering with K=5
+k5_credit_df <- credit_dummy_df
+
+set.seed(12345)
+
+#normalize the data and remove NPV column
+k5_norm_credit_df <- scale(k5_credit_df[,1:40])
+
+k5_out <- kmeans(k5_norm_credit_df, 5, nstart=20)
+k5_out
+
+#cluster centers
+k5_out$centers
+
+#ddistance between the 5 clusters
+dist(k5_out$centers)
+
+
+# Adding K-Means Output to original dataframe and comparing them profitable column
+k5_credit_df$clusterk5 <- k5_out$cluster
+compare_with_orig5 <- table(k5_credit_df$profitable,k5_credit_df$clusterk5)
+compare_with_orig5
+
+```
+
+```{r Cluster Analysis through plots}
+#bar chart showing percentage of people in each cluster
+#blue= no. of 1s and red = no. of 0s
+tt <- as.matrix((compare_with_orig5)/sum(compare_with_orig5)*100)
+bb <- barplot(tt,col=c('red','blue'),ylim=c(0, 40), main="Barchart of people in each cluster", xlab="Cluster", ylab="Probability in %")
+bb
+text(bb,colSums(tt),colSums(tt), cex=1)
+
+legend(1,35,c("0","1"),lty = c(1.2,1.2),col = c("red","blue"))
+
+#table showing average of NPV split up by Cluster Id. 
+#Average NPV split up by Cluster Id
+npv_df <- data.frame(credit_dummy_df$NPV, k5_out$cluster)
+npv_split_by_cluster <- aggregate(npv_df, by = list(npv_df$k5_out.cluster), FUN=mean)
+npv_split_by_cluster
+
+```
+
+
+```{r Experimenting with other k values: k=4}
+#K=4
+k4_credit_df <- credit_dummy_df
+set.seed(12345)
+#normalize the data and remove NPV column
+k4_norm_credit_df <- scale(k4_credit_df[,1:40])
+
+k4_out <- kmeans(k4_norm_credit_df, 4, nstart=20)
+k4_out
+
+#cluster centers
+k4_out$centers
+
+#distance between the 5 clusters
+dist(k4_out$centers)
+
+k4_credit_df$clusterk4 <- k4_out$cluster
+compare_with_orig4 <- table(k4_credit_df$profitable,k4_credit_df$clusterk4)
+compare_with_orig4
+
+#percentage of people in each cluster
+#blue= no. of 1s and red = no. of 0s
+tt <- as.matrix((compare_with_orig4)/sum(compare_with_orig4)*100)
+bb <- barplot(tt,col=c('red','blue'),ylim=c(0, 40), main="Barchart of people in each cluster", xlab="Cluster", ylab="Probability in %")
+bb
+text(bb,colSums(tt),colSums(tt), cex=1)
+
+legend(0.7,40,c("0","1"),lty = c(1.2,1.2),col = c("red","blue"))
+
+#Average NPV split up by Cluster Id
+npv_df <- data.frame(credit_dummy_df$NPV, k4_out$cluster)
+npv_split_by_cluster4 <- aggregate(npv_df, by = list(npv_df$k4_out.cluster), FUN=mean)
+npv_split_by_cluster4
+```
+
+```{r Experimenting with other k values: k=6}
+#K=6
+
+k6_credit_df <- credit_dummy_df
+set.seed(12345)
+#normalize the data and remove NPV column
+k6_norm_credit_df <- scale(k6_credit_df[,1:40])
+
+k6_out <- kmeans(k6_norm_credit_df, 6, nstart=20)
+k6_out
+
+#cluster centers
+k6_out$centers
+
+#distance between the 5 clusters
+dist(k6_out$centers)
+
+k6_credit_df$clusterk6 <- k6_out$cluster
+compare_with_orig6 <- table(k6_credit_df$profitable,k6_credit_df$clusterk6)
+compare_with_orig6
+
+#percentage of people in each cluster
+#blue= no. of 1s and red = no. of 0s
+tt <- as.matrix((compare_with_orig6)/sum(compare_with_orig6)*100)
+bb <- barplot(tt,col=c('red','blue'),ylim=c(0, 40), main="Barchart of people in each cluster", xlab="Cluster", ylab="Probability in %")
+bb
+text(bb,colSums(tt),colSums(tt), cex=1)
+
+legend(0.7,40,c("0","1"),lty = c(1.2,1.2),col = c("red","blue"))
+
+#Average NPV split up by Cluster Id
+npv_df <- data.frame(credit_dummy_df$NPV, k6_out$cluster)
+npv_split_by_cluster6 <- aggregate(npv_df, by = list(npv_df$k6_out.cluster), FUN=mean)
+npv_split_by_cluster6
+```
+
+```{r Association Rules}
+#Restricting the dataset to the 6 column specified in question 7
+
+assoctn_credit_df <- credit_df[,c("CHK_ACCT","SAV_ACCT","HISTORY","EMPLOYMENT","OWN_RES","JOB","profitable")]
+
+library(dummies)
+
+assoctn_dummy_credit_df <- dummy.data.frame(assoctn_credit_df, sep = ".", names=c("CHK_ACCT","SAV_ACCT","HISTORY","EMPLOYMENT","JOB")) 
+assoctn_dummy_credit_df <- sapply(assoctn_dummy_credit_df, as.numeric)
+library(arules)
+library(arulesViz)
+
+#Apriori
+rules<-apriori(assoctn_dummy_credit_df, parameter=list(supp=.001, conf=.8),appearance =list(default="lhs",rhs="profitable"), control=list(verbose=F))
+
+rules<-sort(rules ,decreasing=TRUE,by="confidence")
+inspect(rules[1:5])
+
+summary(rules)
+
+#sort the rules
+rules <- sort(rules, by="confidence", decreasing = TRUE)
+inspect(rules[1:5])
+
+#Now with support = 0.19 and confidence = 0.8
+rules<-apriori(assoctn_dummy_credit_df, parameter=list(supp=.19, conf=.8),appearance =list(default="lhs",rhs="profitable"), control=list(verbose=F))
+
+rules<-sort(rules ,decreasing=TRUE,by="confidence")
+inspect(rules[1:5])
+
+summary(rules)
+
+plot(rules,measure=c("support","lift"),shading="confidence")
+
+```
+
+
+```{r Top 5 good rules by confidence}
+#sort the rules
+rules <- sort(rules, by="confidence", decreasing = TRUE)
+inspect(rules[1:5])
+
+plot(rules,measure=c("support","lift"),shading="confidence")
+```
+
+```{r total profits based on best rule}
+profit_credit_df <- credit_df[,c("CHK_ACCT","SAV_ACCT","HISTORY","EMPLOYMENT","OWN_RES","JOB","NPV","profitable")]
+
+library(dummies)
+
+profit_credit_df <- dummy.data.frame(profit_credit_df, sep = ".", names=c("CHK_ACCT","SAV_ACCT","HISTORY","EMPLOYMENT","JOB")) 
+
+#best rule is within ifelse statement
+tot_profit_best_rule <- (ifelse((profit_credit_df$CHK_ACCT.3==1 & profit_credit_df$JOB.2==1),profit_credit_df$NPV,0))
+sum(tot_profit_best_rule)
+
+
+```
+
+```{r use cluster membership (and PROFITABLE) to define association rules}
+#Creating the new datafrome
+cluster_rule_credit_df <-data.frame(k5_credit_df$profitable, k5_credit_df$clusterk5,k5_credit_df$NPV)
+
+colnames(cluster_rule_credit_df)<-c("PROFITABLE","CLUSTER","NPV")
+
+#subset of columns for association rules
+temp_rules <- data.frame(as.factor(cluster_rule_credit_df$PROFITABLE), as.factor(cluster_rule_credit_df$CLUSTER))
+rules_10<- apriori(temp_rules, parameter = list(supp = 0.07, conf = 0.6))
+
+rules_10<-sort(rules_10, decreasing=TRUE,by="confidence")
+inspect(rules_10[1:5])
+
+profit_10 <- ifelse(cluster_rule_credit_df$CLUSTER==5,cluster_rule_credit_df$NPV,0)
+sum(profit_10)
+
+
+```
